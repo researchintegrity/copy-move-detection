@@ -1,3 +1,14 @@
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#
+# Copyright (c) 2017 Image Processing Research Group of University Federico II of Naples ('GRIP-UNINA').
+# This software is delivered with Government Purpose Rights (GPR) under agreement number FA8750-16-2-0204.
+#
+# By downloading and/or using any of these files, you implicitly agree to all the
+# terms of the license, as specified in the document LICENSE.txt
+# (included in this package) 
+#
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 import numpy
 import scipy.ndimage as simg
 
@@ -64,6 +75,16 @@ def MPF_DLFerror(mpfY, mpfX, radius, mode = 'reflect'):
     D, V = DLFaffineMtx(radius)
     e = DLFerror(mpfY, D, V, mode) + DLFerror(mpfX, D, V, mode)
     return e
+
+def MPF_DLFfit(mpfY, mpfX, radius, mode = 'reflect'):
+    a, b, c = DLFestimeMtx(radius)
+    px, py = numpy.meshgrid(numpy.arange(mpfY.shape[1]), numpy.arange(mpfY.shape[0]))
+    
+    ay, by, cy = simg.correlate(mpfY,a, mode = mode), simg.correlate(mpfY,b, mode = mode), simg.correlate(mpfY,c, mode = mode)
+    ax, bx, cx = simg.correlate(mpfX,a, mode = mode), simg.correlate(mpfX,b, mode = mode), simg.correlate(mpfX,c, mode = mode)
+   
+    dat = numpy.stack((bx, ax, cx, px, by, ay, cy, py),-1)
+    return dat
 
 def MPF_DLFscale(mpfY, mpfX, radius, mode = 'reflect'):
     fY, fX, fZ = DLFestimeMtx(radius)
