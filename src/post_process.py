@@ -56,3 +56,59 @@ class PostProcessor:
         mask = binary_fill_holes(mask)
         
         return mask, mpfY, mpfX, DLFerr, DLFscale, mask_no_dil
+
+    def process_double(self, mpfYA, mpfXA, mpfYB, mpfXB, input_maskA=None, input_maskB=None):
+        """
+        Process the MatchPatch fields for double image detection.
+        """
+        mpfYA = mpfYA.astype(np.float64); mpfXA = mpfXA.astype(np.float64)
+        mpfYB = mpfYB.astype(np.float64); mpfXB = mpfXB.astype(np.float64)
+        
+        # Regularize offsets
+        mpfYA, mpfXA = utl.MPFregularize(mpfYA, mpfXA, self.config['rd_median'])
+        mpfYB, mpfXB = utl.MPFregularize(mpfYB, mpfXB, self.config['rd_median'])
+        
+        # DLF Error
+        DLFerrA = utl.MPF_DLFerror(mpfYA, mpfXA, self.config['rd_dlf'])
+        DLFscaleA = utl.MPF_DLFscale(mpfYA, mpfXA, self.config['rd_dlf'])
+        DLFerrB = utl.MPF_DLFerror(mpfYB, mpfXB, self.config['rd_dlf'])
+        DLFscaleB = utl.MPF_DLFscale(mpfYB, mpfXB, self.config['rd_dlf'])
+        
+        maskA = (DLFerrA <= self.config['th2_dlf']) & (DLFscaleA > self.config['th_scale'])
+        maskB = (DLFerrB <= self.config['th2_dlf']) & (DLFscaleB > self.config['th_scale'])
+        
+        if input_maskA is not None:
+            maskA = maskA & input_maskA
+        if input_maskB is not None:
+            maskB = maskB & input_maskB
+            
+        # Removal of small regions
+        maskA = utl.removesmall(maskA, self.config['th_sizeA'], connectivity=8)
+        maskB = utl.removesmall(maskB, self.config['th_sizeA'], connectivity=8)
+        
+        # Mirroring check (Cross-check)
+        mskB_dil = utl.dilateDisk(maskB, self.config['rd_median'])
+        mskA_dil = utl.dilateDisk(maskA, self.config['rd_median'])
+        
+        # mskAp: A points to B
+        # maskBp: B is pointed to by A
+        mskAp, maskBp = utl.MPFmirror(mpfYA.astype(np.int32), mpfXA.astype(np.int32), maskA, mskB_dil)
+        
+        # mskBp_rev: B points to A
+        # maskAp_rev: A is pointed to by B
+        mskBp_rev, maskAp_rev = utl.MPFmirror(mpfYB.astype(np.int32), mpfXB.astype(np.int32), maskB, mskA_dil)
+        
+        maskA = (mskAp == 1) | (maskAp_rev == 1)
+        maskB = (mskBp_rev == 1) | (maskBp == 1)
+        
+        # Store mask before final dilation
+        maskA_no_dil = maskA.copy()
+        maskB_no_dil = maskB.copy()
+        
+        # Morphological operations
+        maskA = utl.dilateDisk(maskA, self.config['rd_dil'])
+        maskB = utl.dilateDisk(maskB, self.config['rd_dil'])
+        maskA = binary_fill_holes(maskA)
+        maskB = binary_fill_holes(maskB)
+        
+        return maskA, maskB, mpfYA, mpfXA, mpfYB, mpfXB, maskA_no_dil, maskB_no_dil
