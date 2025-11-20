@@ -14,7 +14,7 @@ This method is based on the [SILA](https://github.com/danielmoreira/sciint/tree/
 *   **Cross-Image Copy-Move Detection**: Detects common regions between two different images.
 *   **Feature Extraction**: Supports multiple feature descriptors (e.g., Zernike Moments, PCT, FMT).
 *   **Visualization**: Generates clear visualizations of matches (matching region) and clusters (activation map).
-*   **Docker Support**: Easy-to-use Docker container for reproducible results.
+*   **Docker Support**: Easy-to-use Docker container.
 
 ## Installation
 
