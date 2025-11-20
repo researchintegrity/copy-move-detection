@@ -16,3 +16,8 @@ xcaps/
 figures/
 caption_extraction/
 copy-move-data/
+venv/
+scripts/
+src2/
+test/
+__pycache__/
