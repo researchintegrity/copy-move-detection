@@ -99,9 +99,33 @@ imgA = imread2f('path/to/imageA.png')
 imgB = imread2f('path/to/imageB.png')
 maskA, maskB, clustersA, clustersB = cross_detector.run(imgA, imgB)
 
-# Visualize
-cross_detector.visualize_matches()
-cross_detector.visualize_clusters()
+### Logging and Progress Tracking
+
+The detector supports standard Python logging and a status callback for tracking progress, which is useful for integration with job queues or UI updates.
+
+**Logging:**
+The detector logs messages to the `src.detector` logger. You can configure the logging level and format using standard Python `logging`.
+
+**Status Callback:**
+The `run` method accepts a `status_callback` function that receives the current stage (string) and progress (float 0.0-1.0).
+
+```python
+import logging
+from src.detector import CopyMoveDetector
+from src.utility.utilityImage import imread2f
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+# Define a callback function
+def my_callback(stage, progress):
+    print(f"Current Stage: {stage}, Progress: {progress*100:.1f}%")
+
+detector = CopyMoveDetector()
+img = imread2f('path/to/image.png')
+
+# Run with callback
+mask, clusters = detector.run(img, status_callback=my_callback)
 ```
 
 ## Acknowledgments

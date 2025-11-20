@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 from .config import get_default_parameters
 from .feature_extraction import FeatureExtractor
 from .matching import Matcher
@@ -8,11 +9,13 @@ from .analysis import Analyzer
 from .visualization import Visualizer
 
 class CopyMoveDetector:
-    def __init__(self, config=None):
+    def __init__(self, config=None, logger=None):
         self.config = get_default_parameters()
         if config:
             self.config.update(config)
             
+        self.logger = logger or logging.getLogger(__name__)
+        
         self.feature_extractor = FeatureExtractor(self.config)
         self.matcher = Matcher(self.config)
         self.post_processor = PostProcessor(self.config)
@@ -43,6 +46,7 @@ class CopyMoveDetector:
         Load image from file using the same method as src2 (PIL based).
         This ensures consistent color space (RGB) and scaling.
         """
+        self.logger.info(f"Loading image from {image_path}")
         from .utility.utilityImage import imread2f
         self.image = imread2f(image_path)
         return self.image
@@ -53,7 +57,9 @@ class CopyMoveDetector:
         if self.image is None:
             raise ValueError("No image loaded")
             
+        self.logger.info("Extracting features...")
         self.features, self.padsize, self.diameter = self.feature_extractor.extract(self.image)
+        self.logger.debug(f"Features extracted. Shape: {self.features.shape}")
         return self.features
 
     def match_features(self, features=None):
@@ -62,7 +68,9 @@ class CopyMoveDetector:
         if self.features is None:
             raise ValueError("No features extracted")
             
+        self.logger.info("Matching features...")
         self.mpfY, self.mpfX = self.matcher.match(self.features)
+        self.logger.debug("Matching complete.")
         return self.mpfY, self.mpfX
 
     def post_process(self, mpfY=None, mpfX=None):
@@ -74,10 +82,12 @@ class CopyMoveDetector:
         if self.mpfY is None or self.mpfX is None:
             raise ValueError("No matches found")
             
+        self.logger.info("Post-processing matches...")
         # Note: PostProcessor.process returns mask, mpfY, mpfX, DLFerr, DLFscale, mask_no_dil
         # But mpfY and mpfX are regularized versions.
         self.mask, self.mpfY_reg, self.mpfX_reg, self.DLFerr, self.DLFscale, self.mask_no_dil = \
             self.post_processor.process(self.mpfY, self.mpfX)
+        self.logger.debug("Post-processing complete.")
             
         return self.mask
 
@@ -85,6 +95,7 @@ class CopyMoveDetector:
         if self.mpfY_reg is None:
             raise ValueError("Post-processing not done")
             
+        self.logger.info("Clustering detections...")
         # Apply mask to regularized offsets for clustering
         # Use mask_no_dil to match src2 behavior (exclude dilated regions from clustering data)
         mpfY_masked = self.mpfY_reg.copy()
@@ -104,6 +115,7 @@ class CopyMoveDetector:
         # The clusterer returns masks of size passed in.
         
         self.clusters, self.cluster_centers = self.clusterer.cluster(self.mask.shape, self.dat_cl)
+        self.logger.info(f"Found {len(self.clusters) if self.clusters is not None else 0} clusters.")
         
         return self.clusters
 
@@ -139,16 +151,37 @@ class CopyMoveDetector:
         if self.clusters is None or self.cluster_centers is None:
             raise ValueError("Clustering not done")
             
+        self.logger.info("Analyzing clusters...")
         self.analysis_results = self.analyzer.analyze_clusters(self.clusters, self.cluster_centers)
         return self.analysis_results
 
-    def run(self, image):
+    def run(self, image, status_callback=None):
+        """
+        Run the full detection pipeline.
+        
+        Args:
+            image: Input image.
+            status_callback: Optional callback function(stage, progress) to report progress.
+                             stage is a string, progress is a float (0.0 to 1.0).
+        """
         self.image = image
+        
+        if status_callback: status_callback("extract_features", 0.1)
         self.extract_features()
+        
+        if status_callback: status_callback("match_features", 0.3)
         self.match_features()
+        
+        if status_callback: status_callback("post_process", 0.6)
         self.post_process()
+        
+        if status_callback: status_callback("cluster_detections", 0.8)
         self.cluster_detections()
+        
+        if status_callback: status_callback("analyze_detections", 0.9)
         self.analyze_detections()
+        
+        if status_callback: status_callback("complete", 1.0)
         return self.get_final_mask(), self.get_final_clusters()
 
     def visualize_matches(self, max_lines=500, figsize=(12, 12)):
@@ -156,7 +189,7 @@ class CopyMoveDetector:
         Visualize the matches.
         """
         if self.image is None or self.mask is None:
-            print("Data missing for visualization")
+            self.logger.warning("Data missing for visualization")
             return
             
         # Use regularized offsets if available, otherwise raw offsets
@@ -170,7 +203,7 @@ class CopyMoveDetector:
         Visualize the clusters.
         """
         if self.image is None or self.clusters is None:
-            print("Data missing for visualization")
+            self.logger.warning("Data missing for visualization")
             return
             
         # Use regularized offsets if available
@@ -180,10 +213,12 @@ class CopyMoveDetector:
         self.visualizer.plot_clusters(self.image, self.clusters, self.padsize, mpfY, mpfX, figsize)
 
 class CrossImageCopyDetector:
-    def __init__(self, config=None):
+    def __init__(self, config=None, logger=None):
         self.config = get_default_parameters()
         if config:
             self.config.update(config)
+            
+        self.logger = logger or logging.getLogger(__name__)
             
         self.feature_extractor = FeatureExtractor(self.config)
         self.matcher = Matcher(self.config)
@@ -216,6 +251,7 @@ class CrossImageCopyDetector:
         self.dat_clB = None
 
     def load_image_files(self, imageA_path, imageB_path):
+        self.logger.info(f"Loading images from {imageA_path} and {imageB_path}")
         from .utility.utilityImage import imread2f
         self.imageA = imread2f(imageA_path)
         self.imageB = imread2f(imageB_path)
@@ -225,18 +261,22 @@ class CrossImageCopyDetector:
         if self.imageA is None or self.imageB is None:
             raise ValueError("Images not loaded")
             
+        self.logger.info("Extracting features for both images...")
         self.featuresA, self.padsizeA, self.diameter = self.feature_extractor.extract(self.imageA)
         self.featuresB, self.padsizeB, _ = self.feature_extractor.extract(self.imageB)
+        self.logger.debug("Features extracted.")
         return self.featuresA, self.featuresB
 
     def match_features(self):
         if self.featuresA is None or self.featuresB is None:
             raise ValueError("Features not extracted")
             
+        self.logger.info("Matching features (A->B and B->A)...")
         # Match A -> B
         self.mpfYA, self.mpfXA = self.matcher.match_double(self.featuresA, self.featuresB)
         # Match B -> A
         self.mpfYB, self.mpfXB = self.matcher.match_double(self.featuresB, self.featuresA)
+        self.logger.debug("Matching complete.")
         
         return self.mpfYA, self.mpfXA, self.mpfYB, self.mpfXB
 
@@ -244,8 +284,10 @@ class CrossImageCopyDetector:
         if self.mpfYA is None:
             raise ValueError("Matches not computed")
             
+        self.logger.info("Post-processing matches...")
         self.maskA, self.maskB, self.mpfYA_reg, self.mpfXA_reg, self.mpfYB_reg, self.mpfXB_reg, self.maskA_no_dil, self.maskB_no_dil = \
             self.post_processor.process_double(self.mpfYA, self.mpfXA, self.mpfYB, self.mpfXB)
+        self.logger.debug("Post-processing complete.")
             
         return self.maskA, self.maskB
 
@@ -253,6 +295,7 @@ class CrossImageCopyDetector:
         if self.mpfYA_reg is None:
             raise ValueError("Post-processing not done")
             
+        self.logger.info("Clustering detections...")
         # Cluster A
         mpfYA_masked = self.mpfYA_reg.copy()
         mpfXA_masked = self.mpfXA_reg.copy()
@@ -274,6 +317,8 @@ class CrossImageCopyDetector:
         
         self.dat_clB = self.clusterer.compute_local_dat(mpfYB_masked, mpfXB_masked)
         self.clustersB, _ = self.clusterer.cluster(self.maskB.shape, self.dat_clB)
+        
+        self.logger.info(f"Found {len(self.clustersA) if self.clustersA is not None else 0} clusters in A and {len(self.clustersB) if self.clustersB is not None else 0} clusters in B.")
         
         return self.clustersA, self.clustersB
 
@@ -318,17 +363,34 @@ class CrossImageCopyDetector:
             
         return clustersA_final, clustersB_final
 
-    def run(self, imageA, imageB):
+    def run(self, imageA, imageB, status_callback=None):
+        """
+        Run the full detection pipeline.
+        
+        Args:
+            imageA: Input image A.
+            imageB: Input image B.
+            status_callback: Optional callback function(stage, progress) to report progress.
+        """
         self.imageA = imageA
         self.imageB = imageB
+        
+        if status_callback: status_callback("extract_features", 0.1)
         self.extract_features()
+        
+        if status_callback: status_callback("match_features", 0.3)
         self.match_features()
+        
+        if status_callback: status_callback("post_process", 0.6)
         self.post_process()
+        
+        if status_callback: status_callback("cluster_detections", 0.8)
         self.cluster_detections()
         
         maskA, maskB = self.get_final_masks()
         clustersA, clustersB = self.get_final_clusters()
         
+        if status_callback: status_callback("complete", 1.0)
         return maskA, maskB, clustersA, clustersB
 
     def visualize_matches(self, max_lines=500, figsize=(18, 6)):
@@ -336,7 +398,7 @@ class CrossImageCopyDetector:
         Visualize the matches for double image detection.
         """
         if self.imageA is None or self.imageB is None or self.maskA is None:
-            print("Data missing for visualization")
+            self.logger.warning("Data missing for visualization")
             return
             
         mpfYA = self.mpfYA_reg if self.mpfYA_reg is not None else self.mpfYA
@@ -350,7 +412,7 @@ class CrossImageCopyDetector:
         Visualize the clusters for double image detection.
         """
         if self.imageA is None or self.imageB is None or self.clustersA is None or self.clustersB is None:
-            print("Data missing for visualization")
+            self.logger.warning("Data missing for visualization")
             return
             
         # Use regularized offsets
