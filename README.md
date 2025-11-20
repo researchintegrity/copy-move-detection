@@ -29,7 +29,7 @@ The easiest way to run the detector is using Docker.
 
 ### Option 2: Local Installation
 
-Requires Python 3.8+.
+Requires Python 3.8.
 
 1.  **Install dependencies:**
     ```bash
