@@ -20,7 +20,7 @@ The easiest way to run the detector is using Docker.
 
 1.  **Build the image:**
     ```bash
-    docker build -f Dockerfile.minimal -t cmfd .
+    docker build -f Dockerfile -t cmfd .
     ```
 
 ### Option 2: Local Installation
@@ -29,7 +29,7 @@ Requires Python 3.8+.
 
 1.  **Install dependencies:**
     ```bash
-    pip install -r src/requirements.txt
+    pip install -r requirements.txt
     ```
 
 ## Usage
