@@ -1,4 +1,4 @@
-# Copy-Move Detection System
+# Copy-Move Detection Module
 
 This repository contains an implementation for detecting copy-move forgeries in scientific images. It supports both single-image duplication detection and cross-image duplication detection (finding reused regions between two different images).
 
