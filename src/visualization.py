@@ -26,7 +26,11 @@ class Visualizer:
             display_mask = combined_cluster_mask & mask
 
         plt.figure(figsize=figsize)
-        plt.imshow(image)
+
+        if len(image.shape) == 2:
+            plt.imshow(image, cmap='gray')
+        else:
+            plt.imshow(image)
         
         # Overlay the mask
         if padsize:
@@ -65,7 +69,7 @@ class Visualizer:
 
         # plt.title(title)
         plt.axis('off')
-        plt.show()
+        # plt.show()
 
     def plot_clusters(self, image, clusters, padsize, mpfY=None, mpfX=None, figsize=(12, 12), title="Clusters"):
         """
@@ -176,7 +180,7 @@ class Visualizer:
         plt.imshow(overlay)
         # plt.title(title)
         plt.axis('off')
-        plt.show()
+        # plt.show()
     
     def plot_matches_double(self, imageA, imageB, maskA, mpfYA, mpfXA, padsizeA, padsizeB, clustersA=None, max_lines=500, figsize=(18, 6), title="Cross-Image Matches"):
         """
@@ -250,7 +254,7 @@ class Visualizer:
                 plt.plot(dst_x_canvas, dst_y, 'r.', markersize=3)
                 
         plt.axis('off')
-        plt.show()
+        # plt.show()
     
     def plot_clusters_double(self, imageA, imageB, clustersA, clustersB, mpfYA, mpfXA, mpfYB, mpfXB, padsizeA, padsizeB, figsize=(18, 6), title="Cross-Image Clusters"):
         """
@@ -289,7 +293,7 @@ class Visualizer:
             plt.figure(figsize=figsize)
             plt.imshow(canvas)
             plt.axis('off')
-            plt.show()
+            # plt.show()
             return
 
         # Helper to compute target mask
@@ -407,4 +411,4 @@ class Visualizer:
         plt.axvline(wA - 0.5, color='gray', linewidth=2)
         # plt.title(title)
         plt.axis('off')
-        plt.show()
+        # plt.show()

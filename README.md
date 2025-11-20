@@ -2,14 +2,18 @@
 
 This repository contains an implementation for detecting copy-move forgeries in scientific images. It supports both single-image duplication detection and cross-image duplication detection (finding reused regions between two different images).
 
-The system is based on the [SILA](https://github.com/danielmoreira/sciint/tree/master) project and has been refactored for better modularity, usability, and performance.
+This method is based on the [SILA](https://github.com/danielmoreira/sciint/tree/master) project.
+
+
+
+![](.figs/copy-move-detection.png)
 
 ## Features
 
 *   **Single Image Copy-Move Detection**: Detects duplicated regions within a single image.
 *   **Cross-Image Copy-Move Detection**: Detects common regions between two different images.
 *   **Feature Extraction**: Supports multiple feature descriptors (e.g., Zernike Moments, PCT, FMT).
-*   **Visualization**: Generates clear visualizations of matches and clusters.
+*   **Visualization**: Generates clear visualizations of matches (matching region) and clusters (activation map).
 *   **Docker Support**: Easy-to-use Docker container for reproducible results.
 
 ## Installation
@@ -58,17 +62,18 @@ python src/run_detection.py --input path/to/imageA.png path/to/imageB.png --outp
 Run the container mounting your data directory to `/data` and output directory to `/app/output`.
 
 **Single Image:**
+
 ```bash
-docker run --rm -v /path/to/data:/data -v /path/to/output:/app/output cmfd \
-    --input /data/image.png \
-    --output /app/output
+docker run --rm -v /path/to/input:/input -v /path/to/output:/output cmfd \
+    --input /input/image.png \
+    --output /output
 ```
 
 **Cross-Image:**
 ```bash
-docker run --rm -v /path/to/data:/data -v /path/to/output:/app/output cmfd \
-    --input /data/imageA.png /data/imageB.png \
-    --output /app/output
+docker run --rm -v /path/to/input1:/input1 -v /path/to/input2:/input2 -v /path/to/output:/output cmfd \
+    --input /input1/imageA.png /input2/imageB.png \
+    --output /output
 ```
 
 ### Python API
@@ -130,7 +135,7 @@ mask, clusters = detector.run(img, status_callback=my_callback)
 
 ## Acknowledgments
 
-The core PatchMatch algorithm and utility functions used in this project were implemented by the **Image Processing Research Group of University Federico II of Naples ('GRIP-UNINA')**.
+The core PatchMatch algorithm and utility functions used in this project were implemented by the **Image Processing Research Group of University Federico II of Naples ('GRIP-UNINA')**  and are based on the research work from Cozzolino et al. ([10.1109/TIFS.2015.2455334](https://doi.org/10.1109/TIFS.2015.2455334)). It's LICENSE does not allow commercial usage of this method.
 
 ## Citation
 
