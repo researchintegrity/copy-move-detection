@@ -103,7 +103,7 @@ cross_detector = CrossImageCopyDetector(config)
 imgA = imread2f('path/to/imageA.png')
 imgB = imread2f('path/to/imageB.png')
 maskA, maskB, clustersA, clustersB = cross_detector.run(imgA, imgB)
-
+```
 ### Logging and Progress Tracking
 
 The detector supports standard Python logging and a status callback for tracking progress, which is useful for integration with job queues or UI updates.
