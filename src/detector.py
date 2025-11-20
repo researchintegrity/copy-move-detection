@@ -6,7 +6,6 @@ from .post_process import PostProcessor
 from .clustering import Clusterer
 from .analysis import Analyzer
 from .visualization import Visualizer
-from .utility.utilityImage import img2grayf
 
 class CopyMoveDetector:
     def __init__(self, config=None):

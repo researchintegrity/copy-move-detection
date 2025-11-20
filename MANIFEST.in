@@ -1,0 +1,2 @@
+include src/*.so
+include src/requirements.txt

@@ -1,33 +1,26 @@
-#torch==1.6.0
-#torchvision==0.7.0
-#python==3.7.7
-FROM pytorch/pytorch:1.6.0-cuda10.1-cudnn7-runtime
-SHELL ["/bin/bash", "-c"]
+FROM python:3.8-slim
 
+# Install system dependencies for OpenCV and other libs
+RUN apt-get update && apt-get install -y \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libgl1 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Update
-RUN apt -y update
-RUN apt-get install -y apt-utils
-RUN apt -y upgrade
-RUN apt-get install -y build-essential libglib2.0-0 libsm6 libxext6 libxrender-dev git
-RUN pip install --upgrade pip
+WORKDIR /app
 
-# Copy the code
-COPY ./src /src
-COPY ./scripts /scripts
-WORKDIR /
+# Copy requirements first to leverage cache
+COPY src/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN chmod 775 /scripts/01_cmfd_all_images.py
-RUN chmod 775 /scripts/02_eval_all_results.py
+# Copy source code
+COPY src/ src/
 
-# Instal the needed python libraries.
-RUN pip install -r /src/requirements.txt
+# Set PYTHONPATH to include /app so imports like 'from src.detector' work
+ENV PYTHONPATH=/app
 
-# Instal CRAFT: Character-Region Awareness For Text detection
-RUN cd /src && bash download_CRAFT.sh
-
-# Create the input-output folder
-ENV CMFD_IO=/cmfd/io
-RUN mkdir -p /cmfd/io
-
-WORKDIR /
+# Set entrypoint
+ENTRYPOINT ["python", "src/run_detection.py"]
