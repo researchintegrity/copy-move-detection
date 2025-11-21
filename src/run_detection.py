@@ -4,6 +4,23 @@ import sys
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import logging
+import signal
+import time
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger("run_detection")
+
+class TimeoutException(Exception):
+    pass
+
+def timeout_handler(signum, frame):
+    raise TimeoutException("Detection timed out after 10 minutes")
 
 try:
     from copy_move_detection.detector import CopyMoveDetector, CrossImageCopyDetector
@@ -18,50 +35,85 @@ def save_visualization(fig, output_path):
     fig.savefig(output_path, bbox_inches='tight', pad_inches=0)
     plt.close(fig)
 
+def status_logger(stage, progress):
+    logger.info(f"Detector Status: {stage} - Progress: {progress*100:.1f}%")
+
 def run_single_detection(image_path, output_dir, config):
-    print(f"Running Single Image Detection on {image_path}")
+    logger.info(f"Running Single Image Detection on {image_path}")
     
     detector = CopyMoveDetector(config)
     try:
         img = imread2f(image_path)
     except Exception as e:
-        print(f"Error loading image {image_path}: {e}")
+        logger.error(f"Error loading image {image_path}: {e}")
         return
 
-    # Run detection
-    mask, clusters = detector.run(img)
+    # Run detection with timeout
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(600)  # 10 minutes = 600 seconds
     
+    try:
+        logger.info("Starting detection pipeline...")
+        start_time = time.time()
+        mask, clusters = detector.run(img, status_callback=status_logger)
+        elapsed_time = time.time() - start_time
+        logger.info(f"Detection completed in {elapsed_time:.2f} seconds")
+    except TimeoutException as e:
+        logger.error(f"Timeout: {e}")
+        return
+    except Exception as e:
+        logger.error(f"Detection failed: {e}")
+        return
+    finally:
+        signal.alarm(0)  # Disable alarm
+
     # Save Mask
     base_name = os.path.splitext(os.path.basename(image_path))[0]
     mask_path = os.path.join(output_dir, f"{base_name}_mask.png")
     cv2.imwrite(mask_path, (mask * 255).astype(np.uint8))
-    print(f"Saved mask to {mask_path}")
+    logger.info(f"Saved mask to {mask_path}")
     
     # Visualize and Save Matches
     detector.visualize_matches()
     matches_path = os.path.join(output_dir, f"{base_name}_matches.png")
     save_visualization(plt.gcf(), matches_path)
-    print(f"Saved matches visualization to {matches_path}")
+    logger.info(f"Saved matches visualization to {matches_path}")
     
     # Visualize and Save Clusters
     detector.visualize_clusters()
     clusters_path = os.path.join(output_dir, f"{base_name}_clusters.png")
     save_visualization(plt.gcf(), clusters_path)
-    print(f"Saved clusters visualization to {clusters_path}")
+    logger.info(f"Saved clusters visualization to {clusters_path}")
 
 def run_double_detection(imageA_path, imageB_path, output_dir, config):
-    print(f"Running Cross-Image Detection on {imageA_path} and {imageB_path}")
+    logger.info(f"Running Cross-Image Detection on {imageA_path} and {imageB_path}")
     
     detector = CrossImageCopyDetector(config)
     try:
         imgA = imread2f(imageA_path)
         imgB = imread2f(imageB_path)
     except Exception as e:
-        print(f"Error loading images: {e}")
+        logger.error(f"Error loading images: {e}")
         return
 
-    # Run detection
-    maskA, maskB, clustersA, clustersB = detector.run(imgA, imgB)
+    # Run detection with timeout
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(600)  # 10 minutes = 600 seconds
+
+    try:
+        logger.info("Starting cross-image detection pipeline...")
+        start_time = time.time()
+        maskA, maskB, clustersA, clustersB = detector.run(imgA, imgB, status_callback=status_logger)
+        elapsed_time = time.time() - start_time
+        logger.info(f"Detection completed in {elapsed_time:.2f} seconds")
+    except TimeoutException as e:
+        logger.error(f"Timeout: {e}")
+        return
+    except Exception as e:
+        logger.error(f"Detection failed: {e}")
+        return
+    finally:
+        signal.alarm(0)  # Disable alarm
     
     base_nameA = os.path.splitext(os.path.basename(imageA_path))[0]
     base_nameB = os.path.splitext(os.path.basename(imageB_path))[0]
@@ -71,19 +123,20 @@ def run_double_detection(imageA_path, imageB_path, output_dir, config):
     maskB_path = os.path.join(output_dir, f"{base_nameA}_vs_{base_nameB}_maskB.png")
     cv2.imwrite(maskA_path, (maskA * 255).astype(np.uint8))
     cv2.imwrite(maskB_path, (maskB * 255).astype(np.uint8))
-    print(f"Saved masks to {maskA_path} and {maskB_path}")
+    logger.info(f"Saved masks to {maskA_path} and {maskB_path}")
     
     # Visualize and Save Matches
     detector.visualize_matches()
     matches_path = os.path.join(output_dir, f"{base_nameA}_vs_{base_nameB}_matches.png")
     save_visualization(plt.gcf(), matches_path)
-    print(f"Saved matches visualization to {matches_path}")
+    logger.info(f"Saved matches visualization to {matches_path}")
     
     # Visualize and Save Clusters
     detector.visualize_clusters()
     clusters_path = os.path.join(output_dir, f"{base_nameA}_vs_{base_nameB}_clusters.png")
     save_visualization(plt.gcf(), clusters_path)
-    print(f"Saved clusters visualization to {clusters_path}")
+    logger.info(f"Saved clusters visualization to {clusters_path}")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Copy-Move Detection Tool")
