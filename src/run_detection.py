@@ -70,13 +70,13 @@ def _run_single_detection_worker(image_path, output_dir, config):
     save_visualization(plt.gcf(), clusters_path)
     logger.info(f"Saved clusters visualization to {clusters_path}")
 
-def run_single_detection(image_path, output_dir, config):
+def run_single_detection(image_path, output_dir, config, timeout=600):
     p = multiprocessing.Process(target=_run_single_detection_worker, args=(image_path, output_dir, config))
     p.start()
-    p.join(600) # 10 minutes timeout
+    p.join(timeout) 
     
     if p.is_alive():
-        logger.error("Detection timed out after 10 minutes. Terminating process.")
+        logger.error(f"Detection timed out after {timeout} seconds. Terminating process.")
         p.terminate()
         p.join()
         sys.exit(1) # Exit with error code
@@ -124,13 +124,13 @@ def _run_double_detection_worker(imageA_path, imageB_path, output_dir, config):
     save_visualization(plt.gcf(), clusters_path)
     logger.info(f"Saved clusters visualization to {clusters_path}")
 
-def run_double_detection(imageA_path, imageB_path, output_dir, config):
+def run_double_detection(imageA_path, imageB_path, output_dir, config, timeout=600):
     p = multiprocessing.Process(target=_run_double_detection_worker, args=(imageA_path, imageB_path, output_dir, config))
     p.start()
-    p.join(600) # 10 minutes timeout
+    p.join(timeout) 
     
     if p.is_alive():
-        logger.error("Detection timed out after 10 minutes. Terminating process.")
+        logger.error(f"Detection timed out after {timeout} seconds. Terminating process.")
         p.terminate()
         p.join()
         sys.exit(1) # Exit with error code
@@ -142,6 +142,7 @@ def main():
     parser.add_argument('--input', nargs='+', required=True, help="Input image path(s). Provide one for single detection, two for cross-image detection.")
     parser.add_argument('--output', required=True, help="Output directory for results.")
     parser.add_argument('--method', type=int, default=2, help="Feature extraction method ID (default: 2 for ZM-polar).")
+    parser.add_argument('--timeout', type=int, default=600, help="Timeout in seconds for the detection process (default: 600).")
     
     args = parser.parse_args()
     
@@ -153,9 +154,9 @@ def main():
     }
     
     if len(args.input) == 1:
-        run_single_detection(args.input[0], args.output, config)
+        run_single_detection(args.input[0], args.output, config, args.timeout)
     elif len(args.input) == 2:
-        run_double_detection(args.input[0], args.input[1], args.output, config)
+        run_double_detection(args.input[0], args.input[1], args.output, config, args.timeout)
     else:
         print("Error: Please provide either 1 or 2 input images.")
         sys.exit(1)
