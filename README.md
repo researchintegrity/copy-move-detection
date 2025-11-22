@@ -6,7 +6,7 @@ This method is based on the [SILA](https://github.com/danielmoreira/sciint/tree/
 
 
 
-![](.figs/copy-move-detection.png)
+![](https://raw.githubusercontent.com/researchintegrity/copy-move-detection/refs/heads/main/.figs/copy-move-detection.png)
 
 ## Features
 
