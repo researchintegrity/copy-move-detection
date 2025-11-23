@@ -1,5 +1,9 @@
 import numpy as np
-from sklearn.cluster import DBSCAN
+from sklearn.cluster import DBSCAN, OPTICS, AgglomerativeClustering, MeanShift, estimate_bandwidth
+try:
+    from sklearn.cluster import HDBSCAN
+except ImportError:
+    HDBSCAN = None
 from .utility import CMFD_PM_utily as utl
 try:
     from scipy.ndimage import binary_fill_holes
@@ -38,7 +42,45 @@ class Clusterer:
         norm_factors = np.array([[1.0, 1.0, fp, fp, 1.0, 1.0, fp, fp]])
         dat_cl_norm = dat_cl / norm_factors
         
-        clustering = DBSCAN(eps=0.5, min_samples=13).fit(dat_cl_norm).labels_
+        algo = self.config.get('clustering_algorithm', 'dbscan').lower()
+
+        if algo == 'hdbscan':
+            if HDBSCAN is None:
+                raise ImportError("HDBSCAN is not available in this version of scikit-learn. Upgrade to >=1.3.")
+            min_cluster_size = self.config.get('clustering_min_cluster_size', 13)
+            min_samples = self.config.get('clustering_min_samples', None)
+            clustering = HDBSCAN(min_cluster_size=min_cluster_size, min_samples=min_samples).fit(dat_cl_norm).labels_
+        elif algo == 'optics':
+            min_samples = self.config.get('clustering_min_samples', 13)
+            max_eps = self.config.get('clustering_max_eps', np.inf)
+            xi = self.config.get('clustering_xi', 0.05)
+            clustering = OPTICS(min_samples=min_samples, max_eps=max_eps, xi=xi).fit(dat_cl_norm).labels_
+        elif algo == 'agglomerative':
+            distance_threshold = self.config.get('clustering_distance_threshold', 0.5)
+            # n_clusters=None is required when distance_threshold is not None
+            clustering = AgglomerativeClustering(
+                n_clusters=None, 
+                distance_threshold=distance_threshold,
+                linkage='ward'
+            ).fit(dat_cl_norm).labels_
+        elif algo == 'meanshift':
+            quantile = self.config.get('clustering_bandwidth_quantile', 0.2)
+            # Estimate bandwidth automatically
+            try:
+                bandwidth = estimate_bandwidth(dat_cl_norm, quantile=quantile, n_samples=min(500, len(dat_cl_norm)))
+            except:
+                bandwidth = 0.5
+            
+            if bandwidth <= 0:
+                bandwidth = 0.5
+                
+            clustering = MeanShift(bandwidth=bandwidth, bin_seeding=True).fit(dat_cl_norm).labels_
+        else:
+            # Default to DBSCAN
+            eps = self.config.get('clustering_eps', 0.5)
+            min_samples = self.config.get('clustering_min_samples', 13)
+            clustering = DBSCAN(eps=eps, min_samples=min_samples).fit(dat_cl_norm).labels_
+
         num_clusters = np.max(clustering) + 1
         
         masks = np.zeros((num_clusters, img_shape[0], img_shape[1]), dtype=bool)

@@ -30,4 +30,12 @@ def get_default_parameters():
         # Clustering
         'fact_pos': 100,
         'clustering_rd_dil': 10,
+        'clustering_algorithm': 'dbscan', # 'dbscan', 'hdbscan', 'optics'
+        'clustering_eps': 0.5, # for DBSCAN
+        'clustering_min_samples': 13, # for DBSCAN, HDBSCAN, OPTICS
+        'clustering_min_cluster_size': 13, # for HDBSCAN
+        'clustering_max_eps': np.inf, # for OPTICS
+        'clustering_xi': 0.05, # for OPTICS
+        'clustering_distance_threshold': 0.5, # for Agglomerative
+        'clustering_bandwidth_quantile': 0.2, # for MeanShift
     }
