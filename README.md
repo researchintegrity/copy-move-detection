@@ -24,7 +24,7 @@ The easiest way to run the detector is using Docker.
 
 1.  **Build the image:**
     ```bash
-    docker build -f Dockerfile -t cmfd .
+    docker build -f Dockerfile -t copy-move-detection:latest .
     ```
 
 ### Option 2: Local Installation
@@ -64,14 +64,14 @@ Run the container mounting your data directory to `/data` and output directory t
 **Single Image:**
 
 ```bash
-docker run --rm -v /path/to/input:/input -v /path/to/output:/output cmfd \
+docker run --rm -v /path/to/input:/input -v /path/to/output:/output copy-move-detection:latest \
     --input /input/image.png \
     --output /output
 ```
 
 **Cross-Image:**
 ```bash
-docker run --rm -v /path/to/input1:/input1 -v /path/to/input2:/input2 -v /path/to/output:/output cmfd \
+docker run --rm -v /path/to/input1:/input1 -v /path/to/input2:/input2 -v /path/to/output:/output copy-move-detection:latest \
     --input /input1/imageA.png /input2/imageB.png \
     --output /output
 ```
