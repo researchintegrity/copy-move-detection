@@ -124,34 +124,35 @@ def save_forgery_mask(detector, output_path):
     Save the forgery mask as a .npy file.
     Uses the detector state to compute grouped clusters.
     """
-    if detector.clusters is None:
-        logger.warning("No clusters found in detector.")
-        return
-
-    # Use regularized offsets if available
-    mpfY = detector.mpfY_reg if detector.mpfY_reg is not None else detector.mpfY
-    mpfX = detector.mpfX_reg if detector.mpfX_reg is not None else detector.mpfX
-    
-    if mpfY is None or mpfX is None:
-        logger.warning("No offsets found in detector.")
-        return
-
-    # Compute grouped masks
-    # Note: detector.image might be None if not stored, but we need shape.
-    # detector.mask has the shape of the feature map (unpadded).
-    # We need the final image shape.
-    # If detector.image is available:
+    # Determine image shape
     if detector.image is not None:
         image_shape = detector.image.shape[:2]
-    else:
+    elif detector.mask is not None:
         # Estimate from mask and padsize
         h, w = detector.mask.shape
         if detector.padsize:
             h += detector.padsize[0][0] + detector.padsize[0][1]
             w += detector.padsize[1][0] + detector.padsize[1][1]
         image_shape = (h, w)
+    else:
+        logger.error("Cannot determine image shape for mask generation.")
+        return
 
-    grouped_masks = compute_forgery_groups(detector.clusters, mpfY, mpfX, detector.padsize, image_shape)
+    clusters = detector.clusters if detector.clusters is not None else []
+    
+    if not clusters:
+        logger.warning("No clusters found. Saving empty mask.")
+        grouped_masks = np.zeros((0, image_shape[0], image_shape[1]), dtype=np.uint8)
+    else:
+        # Use regularized offsets if available
+        mpfY = detector.mpfY_reg if detector.mpfY_reg is not None else detector.mpfY
+        mpfX = detector.mpfX_reg if detector.mpfX_reg is not None else detector.mpfX
+        
+        if mpfY is None or mpfX is None:
+            logger.warning("No offsets found in detector but clusters exist. Saving empty mask.")
+            grouped_masks = np.zeros((0, image_shape[0], image_shape[1]), dtype=np.uint8)
+        else:
+            grouped_masks = compute_forgery_groups(clusters, mpfY, mpfX, detector.padsize, image_shape)
     
     # Save
     try:
@@ -258,31 +259,33 @@ def _run_double_detection_worker(imageA_path, imageB_path, output_dir, config):
     base_nameB = os.path.splitext(os.path.basename(imageB_path))[0]
     
     # Save Forgery Masks .npy
-    # Note: CrossImageCopyDetector logic for grouping is more complex (A->B).
-    # For now, we might need to adapt save_forgery_mask to handle CrossImageCopyDetector
-    # or just save raw clusters if grouping isn't implemented for double yet.
-    # But the user asked for "forgery_mask" similar to run_detection.
+    # For double detection, we currently don't have the grouping logic implemented 
+    # in the same way as single detection (which uses connected components of self-matches).
+    # For now, we will save the raw clusters for A and B separately if possible, 
+    # or just save an empty mask to avoid errors.
     
-    # For double detection, detector has clustersA and clustersB.
-    # And mpfYA, mpfXA (A->B) and mpfYB, mpfXB (B->A).
+    # TODO: Implement grouping logic for cross-image detection
+    logger.warning("Forgery mask grouping not yet implemented for double detection. Saving empty masks.")
     
-    # Let's implement a simple save for double that just saves clusters for now, 
-    # or we need to update save_forgery_mask to handle it.
-    # Given the complexity, let's stick to the requested single image logic for now 
-    # or try to adapt.
+    if detector.imageA is not None:
+        shapeA = detector.imageA.shape[:2]
+    else:
+        shapeA = (0, 0) # Should not happen if run succeeded
+        
+    if detector.imageB is not None:
+        shapeB = detector.imageB.shape[:2]
+    else:
+        shapeB = (0, 0)
+
+    empty_maskA = np.zeros((0, shapeA[0], shapeA[1]), dtype=np.uint8)
+    empty_maskB = np.zeros((0, shapeB[0], shapeB[1]), dtype=np.uint8)
     
-    # The user's request seems focused on the single image case "Note that this matching already is implemented in the plot_cluster".
-    # plot_cluster is for single image. plot_matches_double is for double.
+    npy_pathA = os.path.join(output_dir, f"{base_nameA}_vs_{base_nameB}_forgery_maskA.npy")
+    npy_pathB = os.path.join(output_dir, f"{base_nameA}_vs_{base_nameB}_forgery_maskB.npy")
     
-    # We will skip double detection update for now or just save raw clusters as before?
-    # The previous code passed clustersA.
-    # Let's revert to saving raw clusters for double detection for safety, 
-    # or try to implement grouping if possible.
-    
-    # Since save_forgery_mask now expects a detector object, we can't pass clustersA directly.
-    # We need to handle CrossImageCopyDetector in save_forgery_mask or create a separate function.
-    
-    pass # Placeholder, as we need to fix the function signature mismatch for double detection.
+    np.save(npy_pathA, empty_maskA)
+    np.save(npy_pathB, empty_maskB)
+    logger.info(f"Saved placeholder masks to {npy_pathA} and {npy_pathB}")
 
 def run_double_detection(imageA_path, imageB_path, output_dir, config, timeout=600):
     p = multiprocessing.Process(target=_run_double_detection_worker, args=(imageA_path, imageB_path, output_dir, config))
