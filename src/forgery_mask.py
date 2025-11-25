@@ -140,7 +140,7 @@ def save_forgery_mask(detector, output_path):
 
     clusters = detector.clusters if detector.clusters is not None else []
     
-    if not clusters:
+    if len(clusters) == 0:
         logger.warning("No clusters found. Saving empty mask.")
         grouped_masks = np.zeros((0, image_shape[0], image_shape[1]), dtype=np.uint8)
     else:
